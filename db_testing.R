@@ -9,6 +9,13 @@ con_db <- dbConnect(drv = RPostgres::Postgres(),
 
 dbDisconnect(con_db)
 
+dbWriteTable(con_db, "mtcars", mtcars)
+
+dbAppendTable(conn = con_db, name = "mtcars", value = mtcars)
+
+dbListFields(con_db, "main_table")
+
+
 tryCatch({
   drv <- dbDriver("PostgreSQL")
   print("Connecting to Database…")
