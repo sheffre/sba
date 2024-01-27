@@ -80,21 +80,21 @@ async_pusher <- function(buffer, con_db) {
   )
 }
 
-combiner <- function(names, path) {
-  dataframe_output_daily <- data.frame()
-  
-  for (file_name in names) {
-    file_path <- file.path(path, file_name)
-    df <- read.csv2(file_path)
-    dataframe_output_daily <- rbind(dataframe_output_daily, df)
-  }
-  
-  output_folder <- paste0(path, "output_for_", str_replace_all(Sys.Date(), ":", " "))
-  dir.create(output_folder)
-  
-  saving_path <- paste0(output_folder, "/combined_output.csv")
-  write.csv2(dataframe_output_daily, file = saving_path, row.names = FALSE)
-}
+# combiner <- function(names, path) {
+#   dataframe_output_daily <- data.frame()
+#   
+#   for (file_name in names) {
+#     file_path <- file.path(path, file_name)
+#     df <- read.csv2(file_path)
+#     dataframe_output_daily <- rbind(dataframe_output_daily, df)
+#   }
+#   
+#   output_folder <- paste0(path, "output_for_", str_replace_all(Sys.Date(), ":", " "))
+#   dir.create(output_folder)
+#   
+#   saving_path <- paste0(output_folder, "/combined_output.csv")
+#   write.csv2(dataframe_output_daily, file = saving_path, row.names = FALSE)
+# }
 
 colnames_default <- dbListFields(con_db, "co2_atm_data")
 
@@ -118,7 +118,7 @@ textSize <- 0
 vec <- vector()
 dataframed_output <- data.frame()
 stopTime <- Sys.time() + stopTime_interval
-counter <- 0
+# counter <- 0
 
 flush(ser)
 if (is_con_open == "DONE") {
@@ -139,25 +139,25 @@ if (is_con_open == "DONE") {
         future::value(future_pusher)
         cat("Data successfully pushed to the database!\n")
         vec <- vector()
-        counter <- counter + 1
-        cat("Now the counter value is ", counter, ".\n")
+        # counter <- counter + 1
+        # cat("Now the counter value is ", counter, ".\n")
         stopTime <- Sys.time() + stopTime_interval
         break
       }
       
-      if (counter >= 24) {
-        cat("Data saving in progress!")
-        files <- list.files(path = path, pattern = "*.csv")
-        if (length(files) != 0) {
-          combiner(files, path)
-          stopTime <- Sys.time() + stopTime_interval
-          cat(paste("Resaving data at", Sys.time(), "was successful!\n"))
-          counter <- 0
-          break
-        } else if (length(files) == 0) {
-          break
-        }
-      }
+      # if (counter >= 24) {
+      #   cat("Data saving in progress!")
+      #   files <- list.files(path = path, pattern = "*.csv")
+      #   if (length(files) != 0) {
+      #     combiner(files, path)
+      #     stopTime <- Sys.time() + stopTime_interval
+      #     cat(paste("Resaving data at", Sys.time(), "was successful!\n"))
+      #     counter <- 0
+      #     break
+      #   } else if (length(files) == 0) {
+      #     break
+      #   }
+      # }
     }
   }
 } else cat("(Error code: 1)")
