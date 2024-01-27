@@ -1,14 +1,12 @@
 library(testthat)
 
-library(testthat)
-
 # Замените "path_to_your_code" на путь к вашему скрипту
 
 # Тест для функции splitter
 test_that("splitter correctly splits the string", {
-  input_string <- "Hello World"
+  input_string <- c("M 56725 53156 453 55.0 0.0 0.0 999")
   output <- splitter(input_string)
-  expect_equal(output, list(c("Hello", "World")))
+  expect_equal(output, list(c("M", "56725", "53156", "453", "55.0", "0.0", "0.0", "999")))
 })
 
 # Тест для функции saver

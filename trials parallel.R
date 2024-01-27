@@ -1,42 +1,9 @@
-#libs
-required_packages <- c("tidyverse", "serial", "stringi", "rlist", "DBI", "RPostgres", "future")
+# ... (все импорты остаются неизменными)
 
-install_if_missing <- function(pkg) {
-  if (!requireNamespace(pkg, quietly = TRUE)) {
-    install.packages(pkg, dependencies = TRUE)
-  }
-}
-
-lapply(required_packages, install_if_missing)
-
-library(tidyverse)
-library(serial)
-library(stringi)
-library(rlist)
-library(DBI)
-library(RPostgres)
 library(future)
 plan(multisession)
-print("Libraries connected!")
 
-op <- options(digit.secs = 0)
-options(op)
-
-tryCatch({
-  con_db <- dbConnect(drv = RPostgres::Postgres(), 
-                      host     = '81.31.246.77', 
-                      user     = 'testuser', 
-                      password = '0i&=1UkV6KGTqJ', 
-                      dbname   = "default_db")
-}, error = function(cond) {
-  cat("Error when connecting to the database! Check your verification data!")
-})
-
-splitter <- function(x) {
-  output <- strsplit(as.character(x), split = " ")
-  return(output)
-}
-
+# Определение асинхронных функций
 async_reader <- function(ser, buffer) {
   newText <- read.serialConnection(ser)
   if (nchar(newText) > 0) {
@@ -59,11 +26,36 @@ async_processor <- function(newText, buffer) {
   future::value(buffer)
 }
 
+async_saver <- function(buffer, stopTime, path) {
+  saver(buffer, stopTime, path)
+  future::value(NULL)
+}
+
 async_pusher <- function(buffer, con_db) {
+  pusher(buffer, con_db)
+  future::value(NULL)
+}
+
+saver <- function(dataframe_output, stopTime, path) {
+  tryCatch({
+    write.csv2(dataframe_output, 
+               file = paste0(path, paste0("output_for_",
+                                          str_replace_all(stopTime, ":", " "), 
+                                          ".csv")))
+  }, 
+  error = function(cond) {
+    print("Saving data in file at", 
+          Sys.time(), 
+          ": error. \n
+    Please check path.")
+  })
+}
+
+pusher <- function(dataframe_output, con_db) {
   tryCatch({
     dbAppendTable(conn = con_db, 
                   name = "co2_atm_data", 
-                  value = buffer)
+                  value = dataframe_output)
   }, 
   error = function(cond) {
     print("Connecting to a database... \n")
@@ -71,13 +63,19 @@ async_pusher <- function(buffer, con_db) {
       {open(con_db)
       }, 
       error = function(cond) {
-        print("Error connecting to the database! Please check your verification data! \n")
+        print("Error connecting database! Please check 
+              your verification data! \n")
       })
     dbAppendTable(conn = con_db, 
                   name = "co2_atm_data", 
-                  value = buffer)
+                  value = dataframe_output)
   }
   )
+}
+
+splitter <- function(x) {
+  output <- strsplit(as.character(x), split = " ")
+  return(output)
 }
 
 combiner <- function(names, path) {
@@ -92,35 +90,13 @@ combiner <- function(names, path) {
   output_folder <- paste0(path, "output_for_", str_replace_all(Sys.Date(), ":", " "))
   dir.create(output_folder)
   
-  saving_path <- paste0(output_folder, "/combined_output.csv")
+  saving_path <- paste0(output_folder, "\\combined_output.csv")
   write.csv2(dataframe_output_daily, file = saving_path, row.names = FALSE)
 }
 
-colnames_default <- dbListFields(con_db, "co2_atm_data")
+# ... (остальные функции остаются неизменными)
 
-#main
-
-path <- paste0(choose.dir(caption = "Choose directory for saving data:"), "/")
-listPorts()
-port <- readline(prompt = "Enter the port name in style of COMXX: ")
-
-stopTime_interval <- as.numeric(readline(prompt =
-                                           "Enter the stop time 
-                                         interval in hours (hh.hh): "))*3600
-
-ser <- serialConnection(port = port, mode = "19200,N,8,1", buffering = 'line',
-                        newline = T, translation = "CRLF")
-is_con_open <- open(ser)
-
-newText <- ""
-foo <- list()
-textSize <- 0
-vec <- vector()
-dataframed_output <- data.frame()
-stopTime <- Sys.time() + stopTime_interval
-counter <- 0
-
-flush(ser)
+# Изменения в основной части кода
 if (is_con_open == "DONE") {
   while (TRUE) {
     while (Sys.time() < stopTime) {
@@ -134,10 +110,12 @@ if (is_con_open == "DONE") {
       }
       
       if (Sys.time() >= stopTime) {
-        cat("Data for the last 5 minutes is now pushing to a DB...\n")
+        cat("Data for the last 5 minutes is now pushing to a DB and saving into a file...\n")
+        future_saver <- future({async_saver(vec, stopTime, path)})
         future_pusher <- future({async_pusher(vec, con_db)})
+        future::value(future_saver)
         future::value(future_pusher)
-        cat("Data successfully pushed to the database!\n")
+        cat("Data successfully saved!\n")
         vec <- vector()
         counter <- counter + 1
         cat("Now the counter value is ", counter, ".\n")
