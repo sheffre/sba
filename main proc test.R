@@ -19,7 +19,7 @@ plan(multisession, workers = 2)
 
 test_async_pusher <- function(buffer, con_db) {
   pusher(buffer, con_db)
-  future::value(NULL)
+  future::value(1)
 }
 
 
@@ -71,3 +71,18 @@ while(i <= 15) {
   i <- i +1
 }
 t1 <- future::value(test_async_pusher(df, con_loc))
+
+
+future_pusher_loc <- future({ test_async_pusher(df, con_loc) })
+future::value(future_pusher_loc)
+
+
+
+
+
+
+
+
+
+
+

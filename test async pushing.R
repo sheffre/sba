@@ -1,4 +1,7 @@
 #test async pushing
+library(promises)
+
+plan(multisession)
 
 pusher <- function(dataframe_output, con_db) {
   tryCatch({
@@ -21,53 +24,43 @@ pusher <- function(dataframe_output, con_db) {
 
 async_pusher <- function(dataframe_output, con_db) {
   tryCatch({
-    dbAppendTable(conn = con_db, 
-                  name = "co2_atm_data", 
+    dbAppendTable(conn = con_db,
+                  name = "co2_atm_data",
                   value = dataframe_output)
     # Возвращаем что-то, чтобы future::value не был NULL
     return(invisible())
-  }, 
+  },
   error = function(cond) {
     cat("Error pushing data to the database: ", conditionMessage(cond), "\n")
-    
+
     # Перед повторным использованием соединения, убедимся, что оно отключено
     if (dbIsValid(con_db)) {
       dbDisconnect(con_db)
     }
-    
+
     # Создаем новое соединение для повторной попытки
-    con_db_retry <- dbConnect(drv = RPostgres::Postgres(), 
-                              host     = 'localhost', 
-                              user     = 'admin', 
-                              password = '0i&=1UkV6KGTqJ', 
+    con_db_retry <- dbConnect(drv = RPostgres::Postgres(),
+                              host     = 'localhost',
+                              user     = 'admin',
+                              password = '0i&=1UkV6KGTqJ',
                               dbname   = "postgres")
-    
+
     # Повторно вызываем dbAppendTable
     tryCatch({
-      dbAppendTable(conn = con_db_retry, 
-                    name = "co2_atm_data", 
+      dbAppendTable(conn = con_db_retry,
+                    name = "co2_atm_data",
                     value = dataframe_output)
-    }, 
+    },
     error = function(cond_retry) {
       cat("Error pushing data to the database on retry: ", conditionMessage(cond_retry), "\n")
-    }) 
-    
+    })
+
     # Всегда закрываем новое соединение, даже если была ошибка в retry
     dbDisconnect(con_db_retry)
-    
+
     return(invisible())
   })
 }
-
-
-
-
-
-# con_loc <- dbConnect(drv = RPostgres::Postgres(), 
-#                      host     = 'localhost', 
-#                      user     = 'admin', 
-#                      password = '0i&=1UkV6KGTqJ', 
-#                      dbname   = "postgres")
 
 future_pusher_loc <- future({
   con_loc <- dbConnect(drv = RPostgres::Postgres(), 
@@ -83,3 +76,42 @@ future_pusher_loc <- future({
 
 
 future::value(future_pusher_loc)
+
+# con_serv <- dbConnect(drv = RPostgres::Postgres(), 
+#                       host     = '81.31.246.77', 
+#                       user     = 'testuser', 
+#                       password = 'x*5?kxaM>MgD,v', 
+#                       dbname   = "default_db")
+
+
+future_pusher_serv <- future({
+  con_serv <- dbConnect(drv = RPostgres::Postgres(), 
+                        host     = '81.31.246.77', 
+                        user     = 'testuser', 
+                        password = 'x*5?kxaM>MgD,v', 
+                        dbname   = "default_db")
+  
+  on.exit(dbDisconnect(con_serv), add = TRUE)
+  
+  async_pusher(df, con_serv)
+})
+
+
+future::value(future_pusher_serv)
+
+push_promise <- future_promise(async_pusher(df, con_loc))
+
+
+i <- 1
+
+while(i <= 15) {
+  then(push_promise)
+  i <- i+1
+}
+
+
+t <- future::value(future_pusher_serv)
+
+
+
+
