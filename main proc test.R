@@ -46,7 +46,7 @@ con_loc <- dbConnect(drv = RPostgres::Postgres(),
                     host     = 'localhost', 
                     user     = 'admin', 
                     password = '0i&=1UkV6KGTqJ', 
-                    dbname   = "test")
+                    dbname   = "postgres")
 
 con_serv <- dbConnect(drv = RPostgres::Postgres(), 
                     host     = '81.31.246.77', 
