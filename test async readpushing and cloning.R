@@ -16,8 +16,7 @@ library(DBI)
 library(RPostgres)
 library(future)
 library(lubridate)
-plan(multisession)
-options(digits = 1)
+
 
 ethalone <- "M 56725 53156 453 55.0 0.0 0.0 999"
 
@@ -33,7 +32,7 @@ test_asyncReaderPusher <- function(ethalone, con_db) {
   buffer <- paste(ethalone, as.numeric(Sys.time()))
   buffer <- splitter(buffer)[[1]]
   df <- data.frame(t(buffer))
-  colnames(df) <- colnames_default
+  colnames(df) <- dbListFields(con_db, "co2_atm_data")
   df$timestamp <- as.POSIXct(as.numeric(df$timestamp))
   
   tryCatch({
@@ -123,7 +122,7 @@ test_asyncReaderPusher <- function(ethalone, con_db) {
 #   
 # }
 
-time
+
 
 test_asyncCloner <- function(con_loc, con_serv, stopTime) {
   con_loc <- dbConnect(drv = RPostgres::Postgres(),
@@ -148,20 +147,21 @@ test_asyncCloner <- function(con_loc, con_serv, stopTime) {
   
 }
 
+plan(multicore, workers = 2)
+
 future({
-  while(T) {
-    ethalone <- "M 56725 53156 453 55.0 0.0 0.0 999"
-    con_loc <- dbConnect(drv = RPostgres::Postgres(),
+  ethalone <- "M 56725 53156 453 55.0 0.0 0.0 999"
+  con_loc <- dbConnect(drv = RPostgres::Postgres(),
                               host     = 'localhost',
                               user     = 'admin',
                               password = '0i&=1UkV6KGTqJ',
                               dbname   = "postgres")
-    test_asyncReaderPusher(ethalone, con_loc)
-    Sys.sleep(1)
-  }
+    while(T) {
+      test_asyncReaderPusher(ethalone, con_loc)
+    }
 },lazy = T, label = "Async ReadPusher")
 
-
+future({
   timestamp <- Sys.time()
   stopTime_interval <- 60
   stopTime <- timestamp + stopTime_interval
@@ -174,9 +174,6 @@ future({
       }
     }
   }
-
-
-
+}, lazy = T, label = "Async cloner")
 
 future::plan("sequential")
-future::value(Future(environment()))
