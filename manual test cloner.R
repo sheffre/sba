@@ -1,6 +1,6 @@
 #cloner manual test
 
-test_asyncCloner <- function(stopTime) {
+test_asyncCloner <- function() {
   con_loc <- dbConnect(drv = RPostgres::Postgres(),
                        host     = 'localhost',
                        user     = 'cloner',
