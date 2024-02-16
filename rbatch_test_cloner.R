@@ -19,6 +19,11 @@ library(RPostgres)
 library(future)
 library(lubridate)
 
+ping <- function(ip, stderr = FALSE, stdout = FALSE) {
+  pingvec <- system2("ping", ip, stdout = F, stderr = F)
+  if (pingvec == 0) TRUE else FALSE
+}
+
 test_asyncCloner <- function() {
   con_serv <- dbConnect(drv = RPostgres::Postgres(),
                         host     = '81.31.246.77',
@@ -36,7 +41,7 @@ test_asyncCloner <- function() {
                        host     = 'localhost',
                        user     = 'cloner',
                        password = 'cloner',
-                       dbname   = "test")
+                       dbname   = "postgres")
   
   sql_query <- paste0("SELECT * FROM co2_atm_data WHERE timestamp < ", "to_timestamp('",
                       lubridate::round_date(last$timestamp, unit ="second"), "',  'yyyy-mm-dd hh24:mi:ss')")
@@ -66,7 +71,15 @@ test_asyncCloner <- function() {
 
 
 while(T) {
-  test_asyncCloner()
-  Sys.sleep(2)
+  if (ping("81.31.246.77") == T) {
+    test_asyncCloner()
+    Sys.sleep(2)
+  } else {
+    cat("Ethernet connection failed! Real-time data transfer\nis stopped! Only local data saving in progress!")
+    while (ping("81.31.246.77") != T) {
+      Sys.sleep(1)
+    }
+  }
+  
 }
 
