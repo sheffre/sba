@@ -19,19 +19,33 @@ library(RPostgres)
 library(future)
 library(lubridate)
 
-splitter <- function(x) {
-  output <- strsplit(as.character(x), split = " ")
+con_loc <- dbConnect(drv = RPostgres::Postgres(),
+                     host     = 'localhost',
+                     user     = 'admin',
+                     password = '0i&=1UkV6KGTqJ1',
+                     dbname   = "test")
+
+con_serial <- serialConnection(port = "COM3", 
+                               mode = "19200,n,8,1", 
+                               buffering = 'none',
+                               newline = 1, 
+                               translation = "crlf")
+
+colnames_default <- dbListFields(con_loc, "co2_atm_data")
+
+reader_mod <- function(conn) {
+  flush(conn)
+  output <- read.serialConnection(conn)
+  while(nchar(output) != 35) {
+    output <- read.serialConnection(conn)
+  }
   return(output)
 }
 
 
-# t <- open(con_serial)
-
-colnames_default <- dbListFields(con_loc, "co2_atm_data")
-
-
 test_asyncReaderPusher <- function(colnames_default, newText, con_db) {
-  buffer <- c(newText, as.numeric(Sys.time()))
+  buffer <- strsplit(newText, split = " ")[[1]]
+  buffer <- c(buffer, as.numeric(Sys.time()))
   df <- data.frame(t(buffer))
   colnames(df) <- colnames_default
   df$timestamp <- as.POSIXct(as.numeric(df$timestamp), origin = "1970-01-01")
@@ -79,37 +93,17 @@ test_asyncReaderPusher <- function(colnames_default, newText, con_db) {
 
 # ethalone <- "M 56725 53156 453 55.0 0.0 0.0 999"
 
-con_serial <- serialConnection(port = "COM3", 
-                               mode = "19200,N,8,1", 
-                               buffering = 'none',
-                               newline = T, 
-                               translation = "CRLF")
-
-
-con_loc <- dbConnect(drv = RPostgres::Postgres(),
-                     host     = 'localhost',
-                     user     = 'admin',
-                     password = '0i&=1UkV6KGTqJ1',
-                     dbname   = "test")
-
 open(con_serial)
 i <- 1
 newText <- ""
 flush(con_serial)
-while(i <= 15) {
-  newText <- ""
-  while(i <= 15) {
-    flush(con_serial)
-    newText <- read.serialConnection(con_serial)
-    test <- parser(newText)
-    if (test == TRUE) {
-      test_asyncReaderPusher(colnames_default, newText = newText, con_db = con_loc)
-      i <- i+1
-      Sys.sleep(2)
-    } else {
-      break
-    }
+while(TRUE) {
+  while(TRUE) {
+  newText <- reader_mod(con_serial)
+  if (strsplit(newText, split = " ")[[1]][1] == "M") {
+  test_asyncReaderPusher(colnames_default, newText = newText, con_loc)
+  } else {break}
   }
 }
-close(con_serial)
-test_asyncReaderPusher(colnames_default, newText, con_loc)
+# close(con_serial)
+# test_asyncReaderPusher(colnames_default, newText, con_loc)

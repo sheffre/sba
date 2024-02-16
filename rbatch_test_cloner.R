@@ -29,14 +29,14 @@ test_asyncCloner <- function() {
   sql_query_time <- "SELECT * FROM co2_atm_data ORDER BY timestamp DESC LIMIT 1"
   
   last <- dbGetQuery(con_serv, sql_query_time)
-  last$timestamp <- as.POSIXct(as.numeric(last$timestamp))
+  last$timestamp <- as.POSIXct(as.numeric(last$timestamp), origin = "1970-01-01")
   dbDisconnect(con_serv)
   
   con_loc <- dbConnect(drv = RPostgres::Postgres(),
                        host     = 'localhost',
                        user     = 'cloner',
                        password = 'cloner',
-                       dbname   = "postgres")
+                       dbname   = "test")
   
   sql_query <- paste0("SELECT * FROM co2_atm_data WHERE timestamp < ", "to_timestamp('",
                       lubridate::round_date(last$timestamp, unit ="second"), "',  'yyyy-mm-dd hh24:mi:ss')")
